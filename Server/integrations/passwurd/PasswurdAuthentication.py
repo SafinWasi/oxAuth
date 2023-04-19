@@ -3,9 +3,9 @@
 from org.gluu.oxauth.client import RegisterClient
 from org.gluu.oxauth.client import RegisterRequest
 from org.gluu.oxauth.client import RegisterResponse
-from org.gluu.oxauth.model.common import GrantType;
-from org.gluu.oxauth.model.register import ApplicationType;
-from org.gluu.oxauth.model.util import StringUtils;
+from org.gluu.oxauth.model.common import GrantType
+from org.gluu.oxauth.model.register import ApplicationType
+from org.gluu.oxauth.model.util import StringUtils
 from org.gluu.oxauth.model.common import User, WebKeyStorage
 from org.gluu.oxauth.model.configuration import AppConfiguration
 from org.gluu.oxauth.model.crypto import OxAuthCryptoProvider
@@ -40,7 +40,6 @@ import random
 import base64
 import ssl
 import json
-import urllib2
 
 try:
     import json
@@ -54,62 +53,62 @@ class PersonAuthentication(PersonAuthenticationType):
         self.ACR_SG = "super_gluu"
         self.PREV_LOGIN_SETTING = "prevLoginsCookieSettings"
         
-        self.modulePrefix = "scan-external_"
+        self.modulePrefix = "passwurd-external_"
 
     def init(self, customScript, configurationAttributes):    	
-        print "GluuScan. init called"
+        print "Passwurd. init called"
         
         if not configurationAttributes.containsKey("AS_ENDPOINT"):
-            print "Scan. Initialization. Property AS_ENDPOINT is mandatory"
+            print "Passwurd. Initialization. Property AS_ENDPOINT is mandatory"
             return False
         self.AS_ENDPOINT = configurationAttributes.get("AS_ENDPOINT").getValue2()
         
         if not configurationAttributes.containsKey("AS_SSA"):
-            print "Scan. Initialization. Property AS_SSA is mandatory"
+            print "Passwurd. Initialization. Property AS_SSA is mandatory"
             return False
         self.AS_SSA = configurationAttributes.get("AS_SSA").getValue2()
         
         if not configurationAttributes.containsKey("AS_CLIENT_ID"):
-            print "Scan. Initialization. Property AS_CLIENT_ID is mandatory"
+            print "Passwurd. Initialization. Property AS_CLIENT_ID is mandatory"
             return False
         self.AS_CLIENT_ID = configurationAttributes.get("AS_CLIENT_ID").getValue2()
         
         
         if not configurationAttributes.containsKey("AS_CLIENT_SECRET"):
-            print "Scan. Initialization. Property AS_CLIENT_SECRET is mandatory"
+            print "Passwurd. Initialization. Property AS_CLIENT_SECRET is mandatory"
             return False
         self.AS_CLIENT_SECRET = configurationAttributes.get("AS_CLIENT_SECRET").getValue2()
         
         if not configurationAttributes.containsKey("AS_REDIRECT_URI"):
-            print "Scan. Initialization. Property AS_REDIRECT_URI is mandatory"
+            print "Passwurd. Initialization. Property AS_REDIRECT_URI is mandatory"
             return False
         self.AS_REDIRECT_URI = configurationAttributes.get("AS_REDIRECT_URI").getValue2()
         
           
         # JWKS used to sign the SSA 
         if not configurationAttributes.containsKey("PORTAL_JWKS"):
-            print "Scan. Initialization. Property PORTAL_JWKS is mandatory"
+            print "Passwurd. Initialization. Property PORTAL_JWKS is mandatory"
             return False
         self.PORTAL_JWKS = configurationAttributes.get("PORTAL_JWKS").getValue2()
         
         
         # KEY A 
-        if not configurationAttributes.containsKey("SCAN_KEY_A_KEYSTORE"):
-            print "Scan. Initialization. Property SCAN_KEY_A_KEYSTORE is mandatory"
+        if not configurationAttributes.containsKey("PASSWURD_KEY_A_KEYSTORE"):
+            print "Passwurd. Initialization. Property PASSWURD_KEY_A_KEYSTORE is mandatory"
             return False
-        self.SCAN_KEY_A_KEYSTORE = configurationAttributes.get("SCAN_KEY_A_KEYSTORE").getValue2()
+        self.PASSWURD_KEY_A_KEYSTORE = configurationAttributes.get("PASSWURD_KEY_A_KEYSTORE").getValue2()
         
         # KEY A 
-        if not configurationAttributes.containsKey("SCAN_KEY_A_PASSWORD"):
-            print "Scan. Initialization. Property SCAN_KEY_A_PASSWORD is mandatory"
+        if not configurationAttributes.containsKey("PASSWURD_KEY_A_PASSWORD"):
+            print "Passwurd. Initialization. Property PASSWURD_KEY_A_PASSWORD is mandatory"
             return False
-        self.SCAN_KEY_A_PASSWORD = configurationAttributes.get("SCAN_KEY_A_PASSWORD").getValue2()
+        self.PASSWURD_KEY_A_PASSWORD = configurationAttributes.get("PASSWURD_KEY_A_PASSWORD").getValue2()
         
         # KEY A 
-        if not configurationAttributes.containsKey("SCAN_API_URL"):
-            print "Scan. Initialization. Property SCAN_API_URL is mandatory"
+        if not configurationAttributes.containsKey("PASSWURD_API_URL"):
+            print "Passwurd. Initialization. Property PASSWURD_API_URL is mandatory"
             return False
-        self.SCAN_API_URL = configurationAttributes.get("SCAN_API_URL").getValue2()
+        self.PASSWURD_API_URL = configurationAttributes.get("PASSWURD_API_URL").getValue2()
         
         
         
@@ -129,7 +128,7 @@ class PersonAuthentication(PersonAuthenticationType):
                     external = __import__(moduleName, globals(), locals(), ["PersonAuthentication"], -1)
                     module = external.PersonAuthentication(self.currentTimeMillis)
 
-                    print "GluuScan. init. Got dynamic module for acr %s" % acr
+                    print "Passwurd. init. Got dynamic module for acr %s" % acr
                     configAttrs = self.getConfigurationAttributes(acr, self.scriptsList)
                     
                     if acr == self.ACR_SG:
@@ -140,19 +139,27 @@ class PersonAuthentication(PersonAuthenticationType):
                         module.configAttrs = configAttrs
                         self.authenticators[acr] = module
                     else:
-                        print "GluuScan. init. Call to init in module '%s' returned False" % moduleName
+                        print "Passwurd. init. Call to init in module '%s' returned False" % moduleName
                 except:
-                    print "GluuScan. init. Failed to load module %s" % moduleName
+                    print "Passwurd. init. Failed to load module %s" % moduleName
                     print "Exception: ", sys.exc_info()[1]
         else:
-            print "GluuScan. init. Not enough custom scripts enabled. Check config property 'snd_step_methods'"
+            print "Passwurd. init. Not enough custom scripts enabled. Check config property 'snd_step_methods'"
             return False
         
-        self.cryptoProvider = OxAuthCryptoProvider(self.SCAN_KEY_A_KEYSTORE, self.SCAN_KEY_A_PASSWORD, None);
+        self.cryptoProvider = OxAuthCryptoProvider(self.PASSWURD_KEY_A_KEYSTORE, self.PASSWURD_KEY_A_PASSWORD, None)
+        # HTTPS client
+        httpService = CdiUtil.bean(HttpService)
+        self.http_client = httpService.getHttpsClient()
+
         # upon client creation, this value is populated, after that this call will not go through in subsequent script restart
         if StringHelper.isEmptyString(self.AS_CLIENT_ID):
-            self.createClientPy(customScript)
-        print "GluuScan. init. Initialized successfully"
+            success = self.createClientPy(customScript)
+            if not success:
+                print "Passwurd. Init. Client Registration failed."
+                return False
+
+        print "Passwurd. init. Initialized successfully"
         return True
 
     def destroy(self, configurationAttributes):
@@ -171,7 +178,7 @@ class PersonAuthentication(PersonAuthenticationType):
         return None
 
     def authenticate(self, configurationAttributes, requestParameters, step):
-        print "GluuScan. AUTHENTICATE  for step %d" % step
+        print "Passwurd. AUTHENTICATE  for step %d" % step
 
         userService = CdiUtil.bean(UserService)
         authenticationService = CdiUtil.bean(AuthenticationService)
@@ -185,21 +192,21 @@ class PersonAuthentication(PersonAuthenticationType):
             if StringHelper.isNotEmptyString(user_name):
                 foundUser = userService.getUserByAttribute(self.uid_attr, user_name)
                 if foundUser == None:
-                    print "GluuScan. Unknown username '%s'" % user_name
+                    print "Passwurd. Unknown username '%s'" % user_name
                     return False
                 else:
                     logged_in = authenticationService.authenticate(user_name)
                     if (logged_in is True):
                         identity.setWorkingParameter("k_username", k_username)
                         if foundUser.getAttribute("userPassword") is None:
-                            identity.setWorkingParameter("passwordNotSaved", "true");
+                            identity.setWorkingParameter("passwordNotSaved", "true")
                         else:
-                            identity.setWorkingParameter("passwordNotSaved", "false");
+                            identity.setWorkingParameter("passwordNotSaved", "false")
                             
                         availMethods = self.getAvailMethodsUser(foundUser)
                         if availMethods.size() > 0:
                             acr = availMethods.get(0)
-                            print "Scan. Method to try in incase of 2fa step will be: %s" % acr
+                            print "Passwurd. Method to try in incase of 2fa step will be: %s" % acr
                             identity.setWorkingParameter("ACR", acr)
                     print "Logged In : %s" % logged_in
                     return logged_in
@@ -207,7 +214,7 @@ class PersonAuthentication(PersonAuthenticationType):
             user = authenticationService.getAuthenticatedUser()
             username =  user.getUserId()
             if user == None:
-                print "GluuScan. authenticate for step 2. Cannot retrieve logged user"
+                print "Passwurd. authenticate for step 2. Cannot retrieve logged user"
                 return False
         
             elif(CdiUtil.bean(Identity).getWorkingParameter("passwordScanFailed") == "true"):
@@ -241,13 +248,13 @@ class PersonAuthentication(PersonAuthenticationType):
                 print "result %s" % result
                 if(result == True):
                     # Gluu Authentication complete
-                    print "GluuScan. Authentication successful."
+                    print "Passwurd. Authentication successful."
                     
                     # TODO: check that - only if MFA was invoked in a prev step, then this needs to be added
                     result = self.notifyProfilePy(username, True)
-                    user.setAttribute("userPassword", "true");
+                    user.setAttribute("userPassword", "true")
                     userService.updateUser(user)
-                    return True;
+                    return True
                 else:
                     #TODO: what to do here -  Gluu authentication not complete, go for 2FA
                     CdiUtil.bean(Identity).setWorkingParameter("passwordScanFailed","true")
@@ -266,11 +273,11 @@ class PersonAuthentication(PersonAuthenticationType):
                 print "result %s" % result
                 if(result == True):
                     # Gluu Authentication complete
-                    print "GluuScan. Authentication successful."
+                    print "Passwurd. Authentication successful."
                     # access_token = self.getAccessTokenJansServer()
                     # TODO: check that - only if MFA was invoked in a prev step, then this needs to be added
                     result = self.notifyProfilePy(username, True)
-                    return True;
+                    return True
                 else:
                     # Gluu authentication not complete, go for 2FA
                     CdiUtil.bean(Identity).setWorkingParameter("passwordScanFailed","true")
@@ -279,7 +286,7 @@ class PersonAuthentication(PersonAuthenticationType):
         
 
     def prepareForStep(self, configurationAttributes, requestParameters, step):
-        print "GluuScan. prepareForStep %d" % step
+        print "Passwurd. prepareForStep %d" % step
 
         identity = CdiUtil.bean(Identity)
         session_attributes = identity.getSessionId().getSessionAttributes()
@@ -287,7 +294,7 @@ class PersonAuthentication(PersonAuthenticationType):
         if step == 1:
             try:
                 loginHint = session_attributes.get("login_hint")
-                print "GluuScan. prepareForStep. Login hint is %s" % loginHint
+                print "Passwurd. prepareForStep. Login hint is %s" % loginHint
                 isLoginHint = loginHint != None
                 if self.prevLoginsSettings == None:
                     if isLoginHint:
@@ -307,14 +314,14 @@ class PersonAuthentication(PersonAuthenticationType):
             
                     # In login.xhtml both loginHint and users are used to properly display the login form
             except:
-                print "GluuScan. prepareForStep. Error!", sys.exc_info()[1]
+                print "Passwurd. prepareForStep. Error!", sys.exc_info()[1]
                 
             return True
             
         elif step == 2:
             user = CdiUtil.bean(AuthenticationService).getAuthenticatedUser()
             if user == None:
-                print "GluuScan. prepareForStep. Cannot retrieve logged user"
+                print "Passwurd. prepareForStep. Cannot retrieve logged user"
                 return False
             
             # password does not exist, step 2 is 2FA authentication
@@ -327,7 +334,7 @@ class PersonAuthentication(PersonAuthenticationType):
                 
             if CdiUtil.bean(Identity).getWorkingParameter("passwordNotSaved") == "true":
             # case 1  : saving the password    
-                print "GluuScan. user password does not  exists and user will be presented with the save password page which goes to the /enroll endpoint of Gluu scan API"   
+                print "Passwurd. user password does not  exists and user will be presented with the save password page which goes to the /enroll endpoint of Gluu scan API"   
                 return True
             elif CdiUtil.bean(Identity).getWorkingParameter("passwordScanFailed") == "true" :
             # case 2: 2FA authentication
@@ -340,12 +347,12 @@ class PersonAuthentication(PersonAuthenticationType):
                 return True
 
         else:
-            print "GluuScan. Something went wrong"
+            print "Passwurd. Something went wrong"
             return False   
 
     def getExtraParametersForStep(self, configurationAttributes, step):
 
-        print "GluuScan. getExtraParametersForStep %d" % step
+        print "Passwurd. getExtraParametersForStep %d" % step
         list = ArrayList()
         if step > 1:
             acr = CdiUtil.bean(Identity).getWorkingParameter("ACR")
@@ -372,27 +379,27 @@ class PersonAuthentication(PersonAuthenticationType):
                 print module
                 page = module.getPageForStep(module.configAttrs, 2)
                 
-                print "GluuScan. getPageForStep %d is %s" % (2, page)                
+                print "Passwurd. getPageForStep %d is %s" % (2, page)                
                 return page
             
             if CdiUtil.bean(Identity).getWorkingParameter("passwordNotSaved") == "true" and CdiUtil.bean(Identity).getWorkingParameter("passwordNotSavedAnd2FAPassed") == "true":
-                return "/scan/savePwd.xhtml"
+                return "/passwurd/savePwd.xhtml"
             
             elif CdiUtil.bean(Identity).getWorkingParameter("passwordNotSaved") is "true" or CdiUtil.bean(Identity).getWorkingParameter("passwordScanFailed") == "true":
                 return page
             
             else: 
-                return "/scan/enterPwd.xhtml"
+                return "/passwurd/enterPwd.xhtml"
             
-        return "/scan/login.xhtml"
+        return "/passwurd/login.xhtml"
 
     
         
     def getNextStep(self, configurationAttributes, requestParameters, step):
-        print "GluuScan. getNextStep called %d" % step
+        print "Passwurd. getNextStep called %d" % step
         
         if(step > 1):
-            print "GluuScan. Step > 1"
+            print "Passwurd. Step > 1"
             acr = ServerUtil.getFirstValue(requestParameters, "alternativeMethod")
             if acr != None:
                 CdiUtil.bean(Identity).setWorkingParameter("ACR", acr)
@@ -428,7 +435,7 @@ class PersonAuthentication(PersonAuthenticationType):
         config = entryManager.find(config.getClass(), "ou=configuration,o=gluu")
         #Pick (one) attribute where user id is stored (e.g. uid/mail)
         uid_attr = config.getOxIDPAuthentication().get(0).getConfig().getPrimaryKey()
-        print "GluuScan. init. uid attribute is '%s'" % uid_attr
+        print "Passwurd. init. uid attribute is '%s'" % uid_attr
         return uid_attr
 
 
@@ -448,7 +455,7 @@ class PersonAuthentication(PersonAuthenticationType):
                 if customScript.getName() == m and customScript.isEnabled():
                     methods.append(m)
 
-        print "GluuScan. computeMethods. %s" % methods
+        print "Passwurd. computeMethods. %s" % methods
         return methods
 
 
@@ -460,7 +467,7 @@ class PersonAuthentication(PersonAuthenticationType):
                 for prop in customScript.getConfigurationProperties():
                     configMap.put(prop.getValue1(), SimpleCustomProperty(prop.getValue1(), prop.getValue2()))
 
-        print "GluuScan. getConfigurationAttributes. %d configuration properties were found for %s" % (configMap.size(), acr)
+        print "Passwurd. getConfigurationAttributes. %d configuration properties were found for %s" % (configMap.size(), acr)
         return configMap
 
 
@@ -472,10 +479,10 @@ class PersonAuthentication(PersonAuthenticationType):
                 if module.hasEnrollments(module.configAttrs, user) and (skip == None or skip != method):
                     methods.add(method)
             except:
-                print "GluuScan. getAvailMethodsUser. hasEnrollments call could not be issued for %s module" % method
+                print "Passwurd. getAvailMethodsUser. hasEnrollments call could not be issued for %s module" % method
                 print "Exception: ", sys.exc_info()[1]
 
-        print "GluuScan. getAvailMethodsUser %s" % methods.toString()
+        print "Passwurd. getAvailMethodsUser %s" % methods.toString()
         return methods
 
 
@@ -485,26 +492,26 @@ class PersonAuthentication(PersonAuthenticationType):
         # isValidAuthenticationMethod (by restriction, it returns True)
         # prepareForStep (by restriction, it returns True)
         # getExtraParametersForStep (by restriction, it returns None)
-        print "GluuScan. simulateFirstStep. Calling authenticate (step 1) for %s module" % acr
+        print "Passwurd. simulateFirstStep. Calling authenticate (step 1) for %s module" % acr
         if acr in self.authenticators:
             module = self.authenticators[acr]
             auth = module.authenticate(module.configAttrs, requestParameters, 1)
-            print "GluuScan. simulateFirstStep. returned value was %s" % auth
+            print "Passwurd. simulateFirstStep. returned value was %s" % auth
             
     def computePrevLoginsSettings(self, customProperty):
         settings = None
         if customProperty == None:
-            print "GluuScan. Previous logins feature is not configured. Set config property '%s' if desired" % self.PREV_LOGIN_SETTING
+            print "Passwurd. Previous logins feature is not configured. Set config property '%s' if desired" % self.PREV_LOGIN_SETTING
         else:
             try:
                 settings = json.loads(customProperty.getValue2())
                 if settings['enabled']:
-                	print "GluuScan. PrevLoginsSettings are %s" % settings
+                	print "Passwurd. PrevLoginsSettings are %s" % settings
                 else:
                     settings = None
-                    print "GluuScan. Previous logins feature is disabled"
+                    print "Passwurd. Previous logins feature is disabled"
             except:
-                print "GluuScan. Unparsable config property '%s'" % self.PREV_LOGIN_SETTING
+                print "Passwurd. Unparsable config property '%s'" % self.PREV_LOGIN_SETTING
             
         return settings
         
@@ -519,9 +526,9 @@ class PersonAuthentication(PersonAuthenticationType):
                    coo = cookie
         
         if coo == None:
-            print "GluuScan. getCookie. No cookie found"
+            print "Passwurd. getCookie. No cookie found"
         else:
-            print "GluuScan. getCookie. Found cookie"
+            print "Passwurd. getCookie. Found cookie"
             forgetMs = self.prevLoginsSettings['forgetEntriesAfterMinutes'] * 60 * 1000
             
             try:
@@ -535,7 +542,7 @@ class PersonAuthentication(PersonAuthenticationType):
                         ulist.append(v)        
                 # print "==========", ulist
             except:
-                print "GluuScan. getCookie. Unparsable value, dropping cookie..."
+                print "Passwurd. getCookie. Unparsable value, dropping cookie..."
             
         return ulist
         
@@ -572,7 +579,7 @@ class PersonAuthentication(PersonAuthenticationType):
             
             excess = len(users) - self.prevLoginsSettings['maxListSize']            
             if excess > 0:
-                print "GluuScan. persistCookie. Shortening list..."
+                print "Passwurd. persistCookie. Shortening list..."
                 users = users[:self.prevLoginsSettings['maxListSize']]
             
             value = json.dumps(users, separators=(',',':'))
@@ -585,25 +592,25 @@ class PersonAuthentication(PersonAuthenticationType):
             
             response = self.getHttpResponse()
             if response != None:
-                print "GluuScan. persistCookie. Adding cookie to response"
+                print "Passwurd. persistCookie. Adding cookie to response"
                 response.addCookie(coo)
         except:
-            print "GluuScan. persistCookie. Exception: ", sys.exc_info()[1]
+            print "Passwurd. persistCookie. Exception: ", sys.exc_info()[1]
 
 
     def getHttpResponse(self):
         try:
             return FacesContext.getCurrentInstance().getExternalContext().getResponse()
         except:
-            print "GluuScan. Error accessing HTTP response object: ", sys.exc_info()[1]
+            print "Passwurd. Error accessing HTTP response object: ", sys.exc_info()[1]
             return None
         
-    # invoking /authenticate endpoint of the GLUU SCAN API
+    # invoking /authenticate endpoint of the GLUU PASSWURD API
     def authenticatePassword (self, password):
         print "Authenticating password: %s" % password
         return random.choice([True, False])
     
-    # invoking /enroll endpoint of the GLUU SCAN API
+    # invoking /enroll endpoint of the GLUU PASSWURD API
     def enrollPassword (self, password):
         print "Enroll password: %s" % password
         return True #random.choice([True, False])
@@ -637,11 +644,11 @@ class PersonAuthentication(PersonAuthenticationType):
             success = module.authenticate(module.configAttrs, requestParameters, step)
 
         if success:
-            print "GluuScan. authenticate. 2FA authentication was successful"
+            print "Passwurd. authenticate. 2FA authentication was successful"
             if self.prevLoginsSettings != None:
                 self.persistCookie(user)
         else:
-            print "GluuScan. authenticate. 2FA authentication failed"
+            print "Passwurd. authenticate. 2FA authentication failed"
             
         return success
     
@@ -654,59 +661,35 @@ class PersonAuthentication(PersonAuthenticationType):
         print "SignedUID - %s" % signedUID
         return signedUID
     
-    def getAccessTokenJansServer(self ):
+    def getAccessTokenJansServer(self):
         
-        httpService = CdiUtil.bean(HttpService)
-        http_client = httpService.getHttpsClient()
-        http_client_params = http_client.getParams()
-
         url = self.AS_ENDPOINT +"/jans-auth/restv1/token"
-        data = "grant_type=client_credentials&redirect_uri="+self.AS_REDIRECT_URI
-        print url
-        encodedString = base64.b64encode((self.AS_CLIENT_ID+":"+self.AS_CLIENT_SECRET).encode('utf-8'))
-        headers = {"Content-type" : "application/x-www-form-urlencoded", "Accept" : "application/json","Authorization": "Basic "+encodedString}
-        
-        try:
-            http_service_response = httpService.executePost(http_client, url, None, headers , data)
-                    
-            http_response = http_service_response.getHttpResponse()
-        except:
-            print "Jans Auth Server - getAccessToken", sys.exc_info()[1]
+        credentials = (self.AS_CLIENT_ID + ":" + self.AS_CLIENT_SECRET).encode("utf-8")
+        encoded_credentials = base64.b64encode(credentials).decode("utf-8")
+        headers = {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Authorization": "Basic " + encoded_credentials,
+        }
+        body = "grant_type=client_credentials&scope=https://api.gluu.org/auth/scopes/scan.passwurd"
+        status_code, response_string = self.executePost(url, body, headers)
+        print "Passwurd token request. %s %s" % (status_code , response_string)
+        if status_code == 200:
+            response = json.loads(response_string)
+            return response
+        else:
             return None
-
-        try:
-            if not httpService.isResponseStastusCodeOk(http_response):
-                print "Scan. Jans-Auth getAccessToken. Get invalid response from server: ", str(http_response.getStatusLine().getStatusCode())
-                httpService.consume(http_response)
-                return None
-
-            response_bytes = httpService.getResponseContent(http_response)
-            response_string = httpService.convertEntityToString(response_bytes)
-            httpService.consume(http_response)
-        finally:
-           http_service_response.closeConnection()
-
-        if response_string == None:
-            print "Scan. getAccessToken. Got empty response from validation server"
-            return None
-        
-        response = json.loads(response_string)
-        print "Scan. response access token: "+ response["access_token"]
-        return response["access_token"]
     
     
-    def validateKeystrokesPy(self, username, k_username,k_pwd):
+    def validateKeystrokesPy(self, username, k_username, k_pwd):
+        print "Passwurd. Validate call"
         try: 
             customer_sig = self.signUid(username)
             print customer_sig
-            access_token = self.getAccessTokenJansServer()
-            print access_token
+            token_jwt = self.getAccessTokenJansServer()
+            access_token = token_jwt["access_token"]
+            org_id = token_jwt["org_id"]
             
-            ctx = ssl.create_default_context()
-            ctx.check_hostname = False
-            ctx.verify_mode = ssl.CERT_NONE
-            
-            data_org = {  "k_username": k_username,  "k_pwd": k_pwd,  "customer_sig": customer_sig }
+            data_org = {"k_username": k_username, "k_pwd": k_pwd, "customer_sig": customer_sig, "org_id": org_id, "uid": username }
             
             for key in ('k_username', 'k_pwd'):
                 data_org[key] = json.loads(data_org[key])
@@ -716,82 +699,77 @@ class PersonAuthentication(PersonAuthenticationType):
             data_org['customer_sig'] = customer_sig
             
             body = json.dumps(data_org)
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer " + access_token
+            }
             
-            url = self.SCAN_API_URL +"/keystroke_validate"
+            url = self.PASSWURD_API_URL +"/keystroke/validate"
             
-            req = urllib2.Request(url,body,{'Content-Type': 'application/json', 'Content-Length': len(body)})
-            f = urllib2.urlopen(req, context=ctx)
-            response = f.read()
-            f.close()
-            
-            response_data = json.loads(response)
-            print response_data
-            code = response_data['code']
-            print code
-            if(code == 200):
-                print "Keystrokes validated successfully"
+            status_code, response_string = self.executePost(url, body, headers)
+            print "Passwurd Validate. Status code: %s" % status_code
+            print "Passwurd Validate. Response body: %s" % response_string
+            if(status_code == 200):
+                response_json = json.loads(response_string)
+                if response_json["status"] == "Enrollment" or response_json["status"] == "Approved":
+                    print "Keystrokes validated successfully"
+                    return True
             else:
                 print "Failed to validate keystrokes"
                 return False
         except: 
-            print "Failed to execute /keystroke_notify.", sys.exc_info()[1]
+            print "Failed to execute /keystroke/validate.", sys.exc_info()[1]
             return False
         return True
     
     def notifyProfilePy(self, username, mfaPassed):
-        
-        #access_token = self.getAccessTokenJansServer()
-        #print access_token
+        print "Passwurd. Notify call"
+        token_jwt = self.getAccessTokenJansServer()
+        access_token = token_jwt["access_token"]
         try:
-            ctx = ssl.create_default_context()
-            ctx.check_hostname = False
-            ctx.verify_mode = ssl.CERT_NONE
-            
-            data_org = {  "user": username,  "isPassed": mfaPassed }
-            
+            # TODO: track_id
+            data_org = {  "uid": username, "track_id": None }
             body = json.dumps(data_org)
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer " + access_token
+            }
             
-            print body
-            url = self.SCAN_API_URL +"/keystroke_notify"
+            url = self.PASSWURD_API_URL +"/keystroke/notify"
+            status_code, response_string = self.executePost(url, body, headers)
+            print "Passwurd Notify. Status code: %s" % status_code
+            print "Passwurd Notify. Response body: %s" % response_string
+            if(status_code == 200):
+                print "Keystrokes notify sent successfully"
+            else:
+                print "Failed to send keystrokes notify"
+                return False
             
-            print url
-            
-            req = urllib2.Request(url,body,{'Content-Type': 'application/json', 'Content-Length': len(body)})
-            f = urllib2.urlopen(req, context=ctx)
-            response = f.read()
-            f.close()
-            
-            response_data = json.loads(response)
+            response_data = json.loads(response_string)
             print response_data
-            status = response_data['status']
             
         except:
-            print "Failed to execute /keystroke_notify.", sys.exc_info()[1]
+            print "Failed to execute /keystroke/notify.", sys.exc_info()[1]
         # return true irrespective of the result
         return True
     
-    def createClientPy(self, customScript ):
+    def createClientPy(self, customScript):
         try: 
-            
-            ctx = ssl.create_default_context()
-            ctx.check_hostname = False
-            ctx.verify_mode = ssl.CERT_NONE
-            
-            data_org = {   }
-            redirect_str = "[\""+self.AS_REDIRECT_URI+"\"]"
-            data_org["redirect_uris"] = json.loads(redirect_str)
-            data_org["software_statement"] = self.AS_SSA
-            data_org["jwks_uri"] = self.PORTAL_JWKS
-            body = json.dumps(data_org)
-            print body
-            url = self.AS_ENDPOINT +"/jans-auth/restv1/register"
-            req = urllib2.Request(url,body,{'Content-Type': 'application/json', 'Content-Length': len(body)})
-            f = urllib2.urlopen(req, context=ctx)
-            response = f.read()
-            f.close()
-            
-            response_data = json.loads(response)
-            print response_data
+
+            register_uri = self.AS_ENDPOINT + "/jans-auth/restv1/register"
+            body = {
+                "redirect_uris" : [self.AS_REDIRECT_URI],
+                "software_statement": self.AS_SSA,
+                "jwks_uri": self.PORTAL_JWKS,
+                "client_name": "Passwurd client from script"
+            }
+            request_headers = { "Content-type" : "application/json", "Accept" : "application/json" }
+            body_string = json.dumps(body, indent=4)
+            status_code, response_string = self.executePost(register_uri, body_string, request_headers)
+            if status_code >= 300:
+                print "Passwurd. Client registration failed: %s" % response_string
+                return False
+            response_data = json.loads(response_string)
             client_id = response_data["client_id"]
             client_secret = response_data["client_secret"]
             
@@ -803,13 +781,28 @@ class PersonAuthentication(PersonAuthenticationType):
                 elif (StringHelper.equalsIgnoreCase(conf.getValue1(), "AS_CLIENT_SECRET")):
                     conf.setValue2(client_secret)
             custScriptService.update(customScript)    
-            
             print client_id
-            print client_secret
-        except: 
-            print "Failed to execute /register.", sys.exc_info()[1]
+        except Exception as e: 
+            print "Failed to execute /register: %s", e
             return False
         return True
     
-    
-    
+    # Wrapper function for HttpService
+    def executePost(self, request_uri, request_data, request_headers):
+        httpService = CdiUtil.bean(HttpService)
+        try:
+            http_service_response = httpService.executePost(self.http_client, request_uri, None, request_headers, request_data)
+            http_response = http_service_response.getHttpResponse()
+        except:
+            print "PASSWURD. Execute POST failed: ", sys.exc_info()[1]
+            return None
+        
+        status_code = http_response.getStatusLine().getStatusCode()
+        response_bytes = httpService.getResponseContent(http_response)
+        if response_bytes is not None:
+            response_string = httpService.convertEntityToString(response_bytes)
+        else:
+            response_string = None
+        httpService.consume(http_response)
+        http_service_response.closeConnection()
+        return status_code, response_string
